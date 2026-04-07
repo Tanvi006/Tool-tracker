@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Tool Tracker</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #1a1a1a; min-height: 100vh; }
+  .header { background: #fff; border-bottom: 1px solid #e5e5e5; padding: 14px 16px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 10; }
+  .header-icon { width: 32px; height: 32px; background: #1a1a1a; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .header-icon svg { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 2; }
+  .header-title { font-size: 16px; font-weight: 600; }
+  .header-sub { font-size: 12px; color: #666; }
+  .worker-bar { background: #fff; border-bottom: 1px solid #e5e5e5; padding: 10px 16px; display: flex; align-items: center; gap: 10px; }
+  .worker-avatar { width: 30px; height: 30px; border-radius: 50%; background: #e8f0fe; color: #1a73e8; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+  .worker-name { font-size: 13px; font-weight: 500; flex: 1; }
+  .worker-select { font-size: 12px; padding: 4px 8px; border: 1px solid #e5e5e5; border-radius: 6px; background: #fff; color: #1a1a1a; }
+  .content { padding: 16px; max-width: 480px; margin: 0 auto; }
+  .scan-card { background: #fff; border-radius: 14px; border: 1px solid #e5e5e5; overflow: hidden; margin-bottom: 16px; }
+  .scan-btn { width: 100%; padding: 28px 20px; text-align: center; background: none; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .scan-btn:active { background: #f9f9f9; }
+  .scan-icon { width: 60px; height: 60px; border-radius: 14px; background: #f5f5f5; border: 1px solid #e5e5e5; display: flex; align-items: center; justify-content: center; }
+  .scan-icon svg { width: 30px; height: 30px; stroke: #555; fill: none; stroke-width: 1.5; }
+  .scan-label { font-size: 15px; font-weight: 600; color: #1a1a1a; }
+  .scan-sub { font-size: 13px; color: #888; }
+  #reader-container { padding: 16px; display: none; }
+  #reader-container.active { display: block; }
+  #reader { border-radius: 10px; overflow: hidden; }
+  .stop-btn { width: 100%; margin-top: 12px; padding: 11px; border-radius: 10px; background: #f5f5f5; border: 1px solid #e5e5e5; font-size: 14px; color: #555; cursor: pointer; font-weight: 500; }
+  .result-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: flex-end; justify-content: center; }
+  .result-overlay.show { display: flex; }
+  .result-sheet { background: #fff; border-radius: 20px 20px 0 0; padding: 20px 20px 36px; width: 100%; max-width: 480px; }
+  .result-handle { width: 40px; height: 4px; background: #e5e5e5; border-radius: 2px; margin: 0 auto 18px; }
+  .result-tool-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .result-tool-icon { width: 48px; height: 48px; border-radius: 12px; background: #f5f5f5; border: 1px solid #e5e5e5; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .result-tool-name { font-size: 17px; font-weight: 600; }
+  .result-tool-id { font-size: 12px; color: #888; margin-top: 2px; }
+  .status-pill { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-bottom: 14px; }
+  .status-available { background: #e6f4ea; color: #1e7e34; }
+  .status-out { background: #fff3e0; color: #e65100; }
+  .status-overdue { background: #fce8e6; color: #c5221f; }
+  .result-info { background: #f9f9f9; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #555; margin-bottom: 18px; line-height: 1.5; }
+  .action-btn { width: 100%; padding: 14px; border-radius: 12px; font-size: 15px; font-weight: 600; border: none; cursor: pointer; margin-bottom: 10px; }
+  .btn-checkout { background: #1a73e8; color: #fff; }
+  .btn-checkout:active { background: #1558b0; }
+  .btn-return { background: #1e7e34; color: #fff; }
+  .btn-return:active { background: #155724; }
+  .btn-cancel { background: #f5f5f5; color: #555; border: 1px solid #e5e5e5; }
+  .section-title { font-size: 12px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+  .my-tools-card { background: #fff; border-radius: 14px; border: 1px solid #e5e5e5; padding: 4px 0; }
+  .my-tool-row { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid #f0f0f0; }
+  .my-tool-row:last-child { border-bottom: none; }
+  .my-tool-icon { width: 36px; height: 36px; border-radius: 8px; background: #f5f5f5; display: flex; align-items: center; justify-content: center; font-size: 17px; }
+  .my-tool-name { font-size: 14px; font-weight: 500; flex: 1; }
+  .my-tool-since { font-size: 11px; color: #888; margin-top: 2px; }
+  .return-btn { font-size: 12px; padding: 6px 12px; border-radius: 8px; background: #e6f4ea; color: #1e7e34; border: 1px solid #c3e6cb; font-weight: 500; cursor: pointer; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a1a1a; color: #fff; padding: 12px 20px; border-radius: 12px; font-size: 13px; font-weight: 500; z-index: 200; opacity: 0; transition: opacity 0.3s; white-space: nowrap; }
+  .toast.show { opacity: 1; }
+  .empty-state { text-align: center; padding: 24px 16px; color: #aaa; font-size: 13px; }
+  .config-note { background: #fff3cd; border: 1px solid #ffc107; border-radius: 10px; padding: 12px 14px; font-size: 12px; color: #856404; margin-bottom: 16px; line-height: 1.6; }
+  .config-note strong { display: block; margin-bottom: 4px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-icon">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><rect x="14" y="14" width="3" height="3"/><rect x="18" y="14" width="3" height="3"/><rect x="14" y="18" width="3" height="3"/><rect x="18" y="18" width="3" height="3"/></svg>
+  </div>
+  <div>
+    <div class="header-title">Tool Tracker</div>
+    <div class="header-sub" id="current-time"></div>
+  </div>
+</div>
+
+<div class="worker-bar">
+  <div class="worker-avatar" id="worker-avatar">RK</div>
+  <div>
+    <div class="worker-name" id="worker-name-display">Suraj Kunwar</div>
+    <div style="font-size:11px;color:#888">Station 4 · Shift A</div>
+  </div>
+  <select class="worker-select" id="worker-select" onchange="switchWorker(this.value)">
+    <option value="Suraj Kunwar|SK|Station 4">Suraj Kunwar </option>
+    <option value="Sandip Debnath|SD|Station 2">Sandip Debanth</option>
+    <option value="Tanvi Inule|TI|Station 6">Tanvi Inule</option>
+    <option value="Tanushree Kamble|TK|Station 1">Tanushree Kamble</option>
+    <option value="Riya Gogurle|RG|Station 3">Riya Gogurle</option>
+  </select>
+</div>
+
+<div class="content">
+
+  <!-- IMPORTANT: Replace with your deployed Apps Script URL -->
+  <div class="config-note">
+    <strong>⚙️ Setup required</strong>
+    Open this file, find <code>APPS_SCRIPT_URL</code> near the bottom, and paste your Google Apps Script Web App URL there. See instructions doc for details.
+  </div>
+
+  <div class="scan-card">
+    <button class="scan-btn" id="scan-trigger-btn" onclick="startScanner()">
+      <div class="scan-icon">
+        <svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="3" height="3"/><rect x="14" y="7" width="3" height="3"/><rect x="7" y="14" width="3" height="3"/><path d="M14 14h3v3"/></svg>
+      </div>
+      <div class="scan-label">Scan QR Code</div>
+      <div class="scan-sub">Tap to open camera scanner</div>
+    </button>
+    <div id="reader-container">
+      <div id="reader"></div>
+      <button class="stop-btn" onclick="stopScanner()">Cancel scan</button>
+    </div>
+  </div>
+
+  <div class="section-title">My checked-out tools</div>
+  <div class="my-tools-card" id="my-tools-list">
+    <div class="empty-state">No tools checked out</div>
+  </div>
+
+</div>
+
+<!-- Result bottom sheet -->
+<div class="result-overlay" id="result-overlay">
+  <div class="result-sheet">
+    <div class="result-handle"></div>
+    <div class="result-tool-row">
+      <div class="result-tool-icon" id="res-icon">🔧</div>
+      <div>
+        <div class="result-tool-name" id="res-name">Tool Name</div>
+        <div class="result-tool-id" id="res-id">ID: TL-000 · Category</div>
+      </div>
+    </div>
+    <div class="status-pill" id="res-status-pill">Available</div>
+    <div class="result-info" id="res-info">Loading tool information...</div>
+    <button class="action-btn" id="res-action-btn" onclick="confirmAction()">Confirm</button>
+    <button class="action-btn btn-cancel" onclick="closeResult()">Cancel</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const APPS_SCRIPT_URL = "https://script.googleusercontent.com/macros/echo?user_content_key=AWDtjMWNv967_5CgJ9urUIQ-2yxbaBgYYasnXP_eA4jvlqyt-0xIm1D50596LpgyLzKqxjfUUtxB65K-0w7n3hKrrWJkJUT5E-oy8XljnKqOtNiE_aw0LP1XMNCLaHTaSAVKdumaNDRO35sgMqttSAuLgyYckanIBiSkDu59NGDK4Ka_fYcVjqX_M1Ys5_wxVtbbV6gIyjWaiObjiA9-G70Gu75tfu29oNuiDqVyiOo9LJRQS1OGX3mCYpVYRDAkvOOqfcGhLE_dv4FWMDBSBY8PT7PTGmodmg&lib=M8xLRXhMqlCaPiaE1uixSSiJ3hd7ZTgdh";
+
+let scanner = null;
+let scanning = false;
+let currentTool = null;
+let currentWorker = { name: "Suraj Kunwar", initials: "SK", station: "Station 4" };
+let myTools = JSON.parse(localStorage.getItem('myTools') || '[]');
+
+function updateTime() {
+  const now = new Date();
+  document.getElementById('current-time').textContent =
+    now.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' +
+    now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+}
+updateTime();
+setInterval(updateTime, 30000);
+
+function switchWorker(val) {
+  const [name, initials, station] = val.split('|');
+  currentWorker = { name, initials, station };
+  document.getElementById('worker-avatar').textContent = initials;
+  document.getElementById('worker-name-display').textContent = name;
+  myTools = JSON.parse(localStorage.getItem('myTools_' + initials) || '[]');
+  renderMyTools();
+}
+
+function renderMyTools() {
+  const list = document.getElementById('my-tools-list');
+  const tools = JSON.parse(localStorage.getItem('myTools_' + currentWorker.initials) || '[]');
+  if (!tools.length) {
+    list.innerHTML = '<div class="empty-state">No tools currently checked out</div>';
+    return;
+  }
+  list.innerHTML = tools.map(t => `
+    <div class="my-tool-row">
+      <div class="my-tool-icon">${t.icon || '🔧'}</div>
+      <div style="flex:1">
+        <div class="my-tool-name">${t.name}</div>
+        <div class="my-tool-since">Since ${t.time} · ${t.category}</div>
+      </div>
+      <button class="return-btn" onclick="quickReturn('${t.id}','${t.name}')">Return</button>
+    </div>`).join('');
+}
+renderMyTools();
+
+function startScanner() {
+  if (scanning) return;
+  document.getElementById('scan-trigger-btn').style.display = 'none';
+  document.getElementById('reader-container').classList.add('active');
+  scanner = new Html5Qrcode("reader");
+  scanner.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: { width: 240, height: 240 } },
+    onScanSuccess,
+    () => {}
+  ).then(() => { scanning = true; })
+  .catch(err => {
+    showToast("Camera error: " + err);
+    stopScanner();
+  });
+}
+
+function stopScanner() {
+  if (scanner && scanning) {
+    scanner.stop().then(() => { scanning = false; });
+  }
+  document.getElementById('scan-trigger-btn').style.display = 'flex';
+  document.getElementById('reader-container').classList.remove('active');
+}
+
+function onScanSuccess(toolId) {
+  stopScanner();
+  fetchToolInfo(toolId.trim().toUpperCase());
+}
+
+function fetchToolInfo(toolId) {
+  showToast("Looking up " + toolId + "...");
+  if (APPS_SCRIPT_URL === "https://script.googleusercontent.com/macros/echo?user_content_key=AWDtjMWNv967_5CgJ9urUIQ-2yxbaBgYYasnXP_eA4jvlqyt-0xIm1D50596LpgyLzKqxjfUUtxB65K-0w7n3hKrrWJkJUT5E-oy8XljnKqOtNiE_aw0LP1XMNCLaHTaSAVKdumaNDRO35sgMqttSAuLgyYckanIBiSkDu59NGDK4Ka_fYcVjqX_M1Ys5_wxVtbbV6gIyjWaiObjiA9-G70Gu75tfu29oNuiDqVyiOo9LJRQS1OGX3mCYpVYRDAkvOOqfcGhLE_dv4FWMDBSBY8PT7PTGmodmg&lib=M8xLRXhMqlCaPiaE1uixSSiJ3hd7ZTgdh") {
+    simulateToolLookup(toolId);
+    return;
+  }
+  fetch(APPS_SCRIPT_URL + "?action=lookup&toolId=" + encodeURIComponent(toolId))
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) { showToast("Tool not found: " + toolId); return; }
+      showResult(data);
+    })
+    .catch(() => {
+      showToast("Network error — check connection");
+    });
+}
+
+function simulateToolLookup(toolId) {
+  const demo = {
+    "TL-001": { id: "TL-001", name: "Torque wrench 1/2\"", icon: "🔧", category: "Hand tools", status: "available", checkedOutBy: null, since: null },
+    "TL-002": { id: "TL-002", name: "Vernier caliper", icon: "📏", category: "Precision", status: "out", checkedOutBy: "Sandip Debnath", since: "08:30" },
+    "TL-003": { id: "TL-003", name: "Angle grinder", icon: "⚙️", category: "Power tools", status: "available", checkedOutBy: null, since: null },
+    "TL-004": { id: "TL-004", name: "Digital multimeter", icon: "🔌", category: "Electrical", status: "overdue", checkedOutBy: "Tanvi Inule", since: "05:45" },
+  };
+  const tool = demo[toolId] || { id: toolId, name: "Unknown Tool", icon: "❓", category: "Unknown", status: "available", checkedOutBy: null, since: null };
+  setTimeout(() => showResult(tool), 600);
+}
+
+function showResult(tool) {
+  currentTool = tool;
+  document.getElementById('res-icon').textContent = tool.icon || '🔧';
+  document.getElementById('res-name').textContent = tool.name;
+  document.getElementById('res-id').textContent = 'ID: ' + tool.id + ' · ' + tool.category;
+
+  const pill = document.getElementById('res-status-pill');
+  const btn = document.getElementById('res-action-btn');
+  const info = document.getElementById('res-info');
+
+  if (tool.status === 'available') {
+    pill.className = 'status-pill status-available';
+    pill.textContent = 'Available';
+    info.textContent = 'This tool is in the crib and ready to use. Tap below to check it out to yourself.';
+    btn.className = 'action-btn btn-checkout';
+    btn.textContent = 'Check out to me';
+  } else if (tool.status === 'out') {
+    pill.className = 'status-pill status-out';
+    pill.textContent = 'Checked out';
+    info.textContent = 'Currently with ' + tool.checkedOutBy + ' since ' + tool.since + '. If you are returning it, tap Return.';
+    btn.className = 'action-btn btn-return';
+    btn.textContent = 'Mark as returned';
+  } else {
+    pill.className = 'status-pill status-overdue';
+    pill.textContent = 'Overdue';
+    info.textContent = 'Checked out by ' + tool.checkedOutBy + ' since ' + tool.since + ' — past the return deadline.';
+    btn.className = 'action-btn btn-return';
+    btn.textContent = 'Mark as returned';
+  }
+  document.getElementById('result-overlay').classList.add('show');
+}
+
+function confirmAction() {
+  closeResult();
+  const isCheckout = currentTool.status === 'available';
+  const action = isCheckout ? 'checkout' : 'return';
+  const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+  if (isCheckout) {
+    let tools = JSON.parse(localStorage.getItem('myTools_' + currentWorker.initials) || '[]');
+    tools.push({ id: currentTool.id, name: currentTool.name, icon: currentTool.icon, category: currentTool.category, time: now });
+    localStorage.setItem('myTools_' + currentWorker.initials, JSON.stringify(tools));
+    showToast(currentTool.name + " checked out ✓");
+  } else {
+    let tools = JSON.parse(localStorage.getItem('myTools_' + currentWorker.initials) || '[]');
+    tools = tools.filter(t => t.id !== currentTool.id);
+    localStorage.setItem('myTools_' + currentWorker.initials, JSON.stringify(tools));
+    showToast(currentTool.name + " returned ✓");
+  }
+  renderMyTools();
+
+  if (APPS_SCRIPT_URL !== "https://script.googleusercontent.com/macros/echo?user_content_key=AWDtjMWNv967_5CgJ9urUIQ-2yxbaBgYYasnXP_eA4jvlqyt-0xIm1D50596LpgyLzKqxjfUUtxB65K-0w7n3hKrrWJkJUT5E-oy8XljnKqOtNiE_aw0LP1XMNCLaHTaSAVKdumaNDRO35sgMqttSAuLgyYckanIBiSkDu59NGDK4Ka_fYcVjqX_M1Ys5_wxVtbbV6gIyjWaiObjiA9-G70Gu75tfu29oNuiDqVyiOo9LJRQS1OGX3mCYpVYRDAkvOOqfcGhLE_dv4FWMDBSBY8PT7PTGmodmg&lib=M8xLRXhMqlCaPiaE1uixSSiJ3hd7ZTgdh") {
+    fetch(APPS_SCRIPT_URL + "?action=" + action +
+      "&toolId=" + encodeURIComponent(currentTool.id) +
+      "&worker=" + encodeURIComponent(currentWorker.name) +
+      "&station=" + encodeURIComponent(currentWorker.station))
+    .catch(() => showToast("Sync error — data saved locally"));
+  }
+  currentTool = null;
+}
+
+function quickReturn(toolId, toolName) {
+  let tools = JSON.parse(localStorage.getItem('myTools_' + currentWorker.initials) || '[]');
+  tools = tools.filter(t => t.id !== toolId);
+  localStorage.setItem('myTools_' + currentWorker.initials, JSON.stringify(tools));
+  showToast(toolName + " returned ✓");
+  renderMyTools();
+
+  if (APPS_SCRIPT_URL !== "https://script.googleusercontent.com/macros/echo?user_content_key=AWDtjMWNv967_5CgJ9urUIQ-2yxbaBgYYasnXP_eA4jvlqyt-0xIm1D50596LpgyLzKqxjfUUtxB65K-0w7n3hKrrWJkJUT5E-oy8XljnKqOtNiE_aw0LP1XMNCLaHTaSAVKdumaNDRO35sgMqttSAuLgyYckanIBiSkDu59NGDK4Ka_fYcVjqX_M1Ys5_wxVtbbV6gIyjWaiObjiA9-G70Gu75tfu29oNuiDqVyiOo9LJRQS1OGX3mCYpVYRDAkvOOqfcGhLE_dv4FWMDBSBY8PT7PTGmodmg&lib=M8xLRXhMqlCaPiaE1uixSSiJ3hd7ZTgdh") {
+    fetch(APPS_SCRIPT_URL + "?action=return&toolId=" + encodeURIComponent(toolId) +
+      "&worker=" + encodeURIComponent(currentWorker.name));
+  }
+}
+
+function closeResult() {
+  document.getElementById('result-overlay').classList.remove('show');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tool Tracker — Supervisor Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #1a1a1a; }
+  .topbar { background: #fff; border-bottom: 1px solid #e5e5e5; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .topbar-left { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 32px; height: 32px; background: #1a1a1a; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .logo svg { width: 18px; height: 18px; stroke: #fff; fill: none; stroke-width: 2; }
+  .topbar-title { font-size: 16px; font-weight: 600; }
+  .topbar-sub { font-size: 12px; color: #888; }
+  .refresh-btn { font-size: 13px; padding: 7px 14px; border-radius: 8px; border: 1px solid #e5e5e5; background: #fff; cursor: pointer; color: #555; font-weight: 500; }
+  .refresh-btn:hover { background: #f5f5f5; }
+  .live-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #1e7e34; margin-right: 6px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .main { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px 24px; max-width: 1200px; margin: 0 auto; }
+  @media(max-width: 768px) { .main { grid-template-columns: 1fr; padding: 12px; } }
+  .card { background: #fff; border-radius: 14px; border: 1px solid #e5e5e5; }
+  .card-header { padding: 14px 18px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
+  .card-title { font-size: 14px; font-weight: 600; }
+  .card-badge { font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 600; }
+  .badge-red { background: #fce8e6; color: #c5221f; }
+  .badge-green { background: #e6f4ea; color: #1e7e34; }
+  .badge-orange { background: #fff3e0; color: #e65100; }
+  .badge-blue { background: #e8f0fe; color: #1967d2; }
+  .card-body { padding: 0; }
+  .metrics-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 20px 24px; }
+  @media(max-width: 768px) { .metrics-row { grid-template-columns: repeat(2, 1fr); padding: 12px; } }
+  .metric-card { background: #fff; border-radius: 12px; border: 1px solid #e5e5e5; padding: 14px 16px; }
+  .metric-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; font-weight: 500; }
+  .metric-val { font-size: 28px; font-weight: 700; }
+  .metric-val.green { color: #1e7e34; }
+  .metric-val.orange { color: #e65100; }
+  .metric-val.red { color: #c5221f; }
+  .metric-val.blue { color: #1967d2; }
+  .tool-row { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid #f5f5f5; }
+  .tool-row:last-child { border-bottom: none; }
+  .tool-icon-box { width: 38px; height: 38px; border-radius: 9px; background: #f5f5f5; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .tool-name { font-size: 14px; font-weight: 500; }
+  .tool-meta { font-size: 12px; color: #888; margin-top: 2px; }
+  .pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+  .pill-avail { background: #e6f4ea; color: #1e7e34; }
+  .pill-out { background: #fff3e0; color: #e65100; }
+  .pill-over { background: #fce8e6; color: #c5221f; }
+  .log-row { display: flex; align-items: flex-start; gap: 10px; padding: 11px 18px; border-bottom: 1px solid #f5f5f5; }
+  .log-row:last-child { border-bottom: none; }
+  .log-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+  .dot-out { background: #e65100; }
+  .dot-in { background: #1e7e34; }
+  .dot-alert { background: #c5221f; }
+  .log-time { font-size: 11px; color: #aaa; min-width: 42px; margin-top: 1px; white-space: nowrap; }
+  .log-text { font-size: 13px; color: #333; line-height: 1.4; }
+  .worker-row { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid #f5f5f5; }
+  .worker-row:last-child { border-bottom: none; }
+  .worker-av { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .worker-bar-wrap { flex: 1; }
+  .worker-bar-name { font-size: 13px; font-weight: 500; margin-bottom: 5px; }
+  .worker-bar-bg { height: 6px; background: #f0f0f0; border-radius: 3px; overflow: hidden; }
+  .worker-bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+  .worker-count { font-size: 13px; color: #888; min-width: 50px; text-align: right; }
+  .search-bar { padding: 12px 18px; border-bottom: 1px solid #f0f0f0; }
+  .search-input { width: 100%; padding: 8px 12px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 13px; background: #f9f9f9; color: #1a1a1a; outline: none; }
+  .search-input:focus { border-color: #1a73e8; background: #fff; }
+  .filter-row { padding: 10px 18px; border-bottom: 1px solid #f0f0f0; display: flex; gap: 8px; }
+  .filter-btn { padding: 5px 12px; border-radius: 20px; font-size: 12px; border: 1px solid #e5e5e5; background: #fff; cursor: pointer; color: #555; transition: all 0.15s; }
+  .filter-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  .alert-banner { background: #fce8e6; border: 1px solid #f5c6c6; border-radius: 10px; padding: 12px 16px; margin: 16px 24px 0; display: flex; align-items: center; gap: 10px; }
+  .alert-icon { width: 28px; height: 28px; border-radius: 8px; background: #c5221f; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; }
+  .alert-text { font-size: 13px; color: #c5221f; font-weight: 500; flex: 1; }
+  .config-note { background: #fff3cd; border: 1px solid #ffc107; border-radius: 10px; padding: 12px 16px; margin: 16px 24px 0; font-size: 12px; color: #856404; line-height: 1.6; }
+  .export-btn { font-size: 12px; padding: 5px 12px; border-radius: 8px; background: #e8f0fe; color: #1967d2; border: 1px solid #c5d9f7; cursor: pointer; font-weight: 500; }
+  .full-width { grid-column: 1 / -1; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { padding: 10px 18px; text-align: left; font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #f0f0f0; }
+  tbody td { padding: 12px 18px; font-size: 13px; border-bottom: 1px solid #f5f5f5; vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #fafafa; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    </div>
+    <div>
+      <div class="topbar-title">Tool Tracker — Supervisor</div>
+      <div class="topbar-sub"><span class="live-dot"></span><span id="last-updated">Loading...</span></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button class="export-btn" onclick="exportCSV()">Export CSV</button>
+    <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+  </div>
+</div>
+
+<!-- IMPORTANT: Replace with your Apps Script URL -->
+<div class="config-note">
+  <strong>⚙️ Supervisor setup:</strong> Find <code>APPS_SCRIPT_URL</code> in the script below and paste your Google Apps Script Web App URL. Once configured, this dashboard auto-refreshes every 60 seconds and pulls live data from your Google Sheet.
+</div>
+
+<div id="alert-container"></div>
+
+<div class="metrics-row">
+  <div class="metric-card"><div class="metric-label">Total tools</div><div class="metric-val blue" id="m-total">—</div></div>
+  <div class="metric-card"><div class="metric-label">Available now</div><div class="metric-val green" id="m-avail">—</div></div>
+  <div class="metric-card"><div class="metric-label">Checked out</div><div class="metric-val orange" id="m-out">—</div></div>
+  <div class="metric-card"><div class="metric-label">Overdue</div><div class="metric-val red" id="m-overdue">—</div></div>
+</div>
+
+<div class="main">
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">All tools</div>
+      <span class="card-badge badge-blue" id="tools-count-badge">Loading</span>
+    </div>
+    <div class="search-bar">
+      <input type="text" class="search-input" placeholder="Search by tool name or ID..." oninput="filterTools(this.value)" id="tool-search">
+    </div>
+    <div class="filter-row">
+      <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+      <button class="filter-btn" onclick="setFilter('available',this)">Available</button>
+      <button class="filter-btn" onclick="setFilter('out',this)">Out</button>
+      <button class="filter-btn" onclick="setFilter('overdue',this)">Overdue</button>
+    </div>
+    <div class="card-body" id="tool-list" style="max-height:420px;overflow-y:auto"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Activity log — today</div>
+      <span class="card-badge badge-blue" id="log-count-badge">0 events</span>
+    </div>
+    <div class="card-body" id="activity-log" style="max-height:520px;overflow-y:auto"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Worker utilisation</div>
+      <span class="card-badge badge-green" id="workers-badge">4 active</span>
+    </div>
+    <div class="card-body" id="worker-list"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Overdue tools — action required</div>
+      <span class="card-badge badge-red" id="overdue-badge">0 overdue</span>
+    </div>
+    <div class="card-body" id="overdue-list"></div>
+  </div>
+
+</div>
+
+<script>
+const APPS_SCRIPT_URL = "https://script.googleusercontent.com/macros/echo?user_content_key=AWDtjMUPtlwUNRppMj6IAEn9_KGk7HN7I_l9rCPFU5SiV_Mfa-HJiMevD0IWH6K9DZHKOKmCNuWawQsYhLkOvZRUcHIPAYvDYDfKb8yFYfqqMXLuUT7u90ht1qKSmrTZliGHTZGLKN8gXsBryVvkxF6Ux8cX5Cg5r--cUBAIgirULmV2REGoJaVdK0UkuQReVlrW5gelc_NjrWCFz9UbTs5PenOvijlWaVpwJzES_tEV5h_rT83vSvhqbQcWsS5yrl23ld1b-Qw1wb_FCaG73XkyB94DVZSmRw&lib=M8xLRXhMqlCaPiaE1uixSSiJ3hd7ZTgdh";
+
+const DEMO_DATA = {
+  tools: [
+    { id:"TL-001", name:"Torque wrench 1/2\"", icon:"🔧", category:"Hand tools", status:"out", worker:"Ramesh K.", station:"Station 4", since:"08:14", maxHours: 4 },
+    { id:"TL-002", name:"Vernier caliper", icon:"📏", category:"Precision", status:"available", worker:null, station:null, since:null, maxHours: 4 },
+    { id:"TL-003", name:"Hex key set M6", icon:"⚙️", category:"Hand tools", status:"out", worker:"Ramesh K.", station:"Station 4", since:"09:02", maxHours: 4 },
+    { id:"TL-004", name:"Digital multimeter", icon:"🔌", category:"Electrical", status:"overdue", worker:"Priya A.", station:"Station 2", since:"05:45", maxHours: 4 },
+    { id:"TL-005", name:"Angle grinder 4\"", icon:"⚙️", category:"Power tools", status:"available", worker:null, station:null, since:null, maxHours: 2 },
+    { id:"TL-006", name:"Micrometer 0-25mm", icon:"📏", category:"Precision", status:"out", worker:"Mohan S.", station:"Station 6", since:"07:45", maxHours: 4 },
+    { id:"TL-007", name:"Wire stripper AWG", icon:"🔧", category:"Electrical", status:"available", worker:null, station:null, since:null, maxHours: 8 },
+    { id:"TL-008", name:"Bearing puller set", icon:"🔩", category:"Specialty", status:"overdue", worker:"Deepa T.", station:"Station 1", since:"05:50", maxHours: 2 },
+    { id:"TL-009", name:"Spirit level 600mm", icon:"📐", category:"Layout", status:"available", worker:null, station:null, since:null, maxHours: 8 },
+    { id:"TL-010", name:"Crimping tool RJ45", icon:"🔧", category:"Electrical", status:"out", worker:"Suresh R.", station:"Station 3", since:"09:30", maxHours: 4 },
+  ],
+  log: [
+    { time:"10:45", type:"in", text:"Suraj Kunwar returned Hex key set M8 (Station 4)" },
+    { time:"10:22", type:"out", text:"Tanvi Inule checked out Micrometer 0-25mm (Station 6)" },
+    { time:"09:45", type:"alert", text:"Bearing puller — overdue alert sent to Tanushree Kamble" },
+    { time:"09:30", type:"out", text:"Riya Gogurle checked out Crimping tool RJ45 (Station 3)" },
+    { time:"09:02", type:"out", text:"Suraj Kunwar checked out Hex key set M6 (Station 4)" },
+    { time:"08:50", type:"in", text:"Tanushree Kamble returned Torque wrench 3/8\" (Station 1)" },
+    { time:"08:14", type:"out", text:"Suraj Kunwar checked out Torque wrench 1/2\" (Station 4)" },
+    { time:"07:45", type:"out", text:"Tanvi Inule checked out Bearing puller set (Station 6)" },
+    { time:"06:00", type:"alert", text:"Digital multimeter — overdue alert sent to Sandip Debnath" },
+    { time:"05:50", type:"out", text:"Tanushree Kamble checked out Bearing puller set (Station 1)" },
+    { time:"05:45", type:"out", text:"Sandip Debnath checked out Digital multimeter (Station 2)" },
+  ],
+  workers: [
+    { name:"Suraj Kunwar", initials:"SK", color:"#1967d2", bg:"#e8f0fe", tools:2 },
+    { name:"Sandip Debnath", initials:"SD", color:"#1e7e34", bg:"#e6f4ea", tools:1 },
+    { name:"Tanvi Inule", initials:"TI", color:"#e65100", bg:"#fff3e0", tools:1 },
+    { name:"Tanushree Kamble", initials:"TK", color:"#c5221f", bg:"#fce8e6", tools:1 },
+    { name:"Riya Gogurle", initials:"RG", color:"#6200ea", bg:"#f3e8fd", tools:1 },
+  ]
+};
+
+let allTools = [];
+let currentFilter = 'all';
+let searchQuery = '';
+
+function loadData() {
+  document.getElementById('last-updated').textContent = 'Refreshing...';
+  if (APPS_SCRIPT_URL === "https://script.googleusercontent.com/macros/echo?user_content_key=AWDtjMUPtlwUNRppMj6IAEn9_KGk7HN7I_l9rCPFU5SiV_Mfa-HJiMevD0IWH6K9DZHKOKmCNuWawQsYhLkOvZRUcHIPAYvDYDfKb8yFYfqqMXLuUT7u90ht1qKSmrTZliGHTZGLKN8gXsBryVvkxF6Ux8cX5Cg5r--cUBAIgirULmV2REGoJaVdK0UkuQReVlrW5gelc_NjrWCFz9UbTs5PenOvijlWaVpwJzES_tEV5h_rT83vSvhqbQcWsS5yrl23ld1b-Qw1wb_FCaG73XkyB94DVZSmRw&lib=M8xLRXhMqlCaPiaE1uixSSiJ3hd7ZTgdh") {
+    setTimeout(() => renderAll(DEMO_DATA), 600);
+    return;
+  }
+  fetch(APPS_SCRIPT_URL + "?action=dashboard")
+    .then(r => r.json())
+    .then(data => renderAll(data))
+    .catch(() => {
+      document.getElementById('last-updated').textContent = 'Connection error — showing demo data';
+      renderAll(DEMO_DATA);
+    });
+}
+
+function renderAll(data) {
+  allTools = data.tools;
+  const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('last-updated').textContent = 'Last updated ' + now;
+
+  const total = data.tools.length;
+  const avail = data.tools.filter(t => t.status === 'available').length;
+  const out = data.tools.filter(t => t.status === 'out').length;
+  const overdue = data.tools.filter(t => t.status === 'overdue').length;
+
+  document.getElementById('m-total').textContent = total;
+  document.getElementById('m-avail').textContent = avail;
+  document.getElementById('m-out').textContent = out;
+  document.getElementById('m-overdue').textContent = overdue;
+
+  renderToolList();
+  renderLog(data.log);
+  renderWorkers(data.workers);
+  renderOverdue(data.tools.filter(t => t.status === 'overdue'));
+  renderAlerts(overdue);
+}
+
+function renderToolList() {
+  let tools = allTools;
+  if (currentFilter !== 'all') tools = tools.filter(t => t.status === currentFilter);
+  if (searchQuery) tools = tools.filter(t =>
+    t.name.toLowerCase().includes(searchQuery) || t.id.toLowerCase().includes(searchQuery));
+
+  document.getElementById('tools-count-badge').textContent = tools.length + ' tools';
+  const el = document.getElementById('tool-list');
+  el.innerHTML = tools.map(t => `
+    <div class="tool-row">
+      <div class="tool-icon-box">${t.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div class="tool-name">${t.name}</div>
+        <div class="tool-meta">${t.id} · ${t.category}${t.worker ? ' · ' + t.worker : ''}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div class="${t.status==='available'?'pill pill-avail':t.status==='out'?'pill pill-out':'pill pill-over'}">
+          ${t.status.charAt(0).toUpperCase()+t.status.slice(1)}
+        </div>
+        ${t.since ? '<div style="font-size:11px;color:#aaa;margin-top:4px">Since ' + t.since + '</div>' : ''}
+      </div>
+    </div>`).join('') || '<div style="padding:24px;text-align:center;color:#aaa;font-size:13px">No tools match filter</div>';
+}
+
+function filterTools(q) {
+  searchQuery = q.toLowerCase();
+  renderToolList();
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderToolList();
+}
+
+function renderLog(log) {
+  document.getElementById('log-count-badge').textContent = log.length + ' events';
+  document.getElementById('activity-log').innerHTML = log.map(l => `
+    <div class="log-row">
+      <div class="log-dot ${l.type==='out'?'dot-out':l.type==='in'?'dot-in':'dot-alert'}"></div>
+      <div class="log-time">${l.time}</div>
+      <div class="log-text">${l.text}</div>
+    </div>`).join('');
+}
+
+function renderWorkers(workers) {
+  const max = Math.max(...workers.map(w => w.tools), 1);
+  document.getElementById('workers-badge').textContent = workers.length + ' active';
+  document.getElementById('worker-list').innerHTML = workers.map(w => `
+    <div class="worker-row">
+      <div class="worker-av" style="background:${w.bg};color:${w.color}">${w.initials}</div>
+      <div class="worker-bar-wrap">
+        <div class="worker-bar-name">${w.name}</div>
+        <div class="worker-bar-bg">
+          <div class="worker-bar-fill" style="width:${Math.round((w.tools/max)*100)}%;background:${w.color}"></div>
+        </div>
+      </div>
+      <div class="worker-count">${w.tools} tool${w.tools !== 1 ? 's' : ''}</div>
+    </div>`).join('');
+}
+
+function renderOverdue(tools) {
+  document.getElementById('overdue-badge').textContent = tools.length + ' overdue';
+  if (!tools.length) {
+    document.getElementById('overdue-list').innerHTML = '<div style="padding:24px;text-align:center;color:#aaa;font-size:13px">No overdue tools</div>';
+    return;
+  }
+  document.getElementById('overdue-list').innerHTML = tools.map(t => `
+    <div class="tool-row">
+      <div class="tool-icon-box">${t.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div class="tool-name">${t.name}</div>
+        <div class="tool-meta">With ${t.worker} · ${t.station} · Since ${t.since}</div>
+      </div>
+      <span class="pill pill-over">Overdue</span>
+    </div>`).join('');
+}
+
+function renderAlerts(overdueCount) {
+  const el = document.getElementById('alert-container');
+  if (overdueCount === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="alert-banner">
+    <div class="alert-icon">!</div>
+    <div class="alert-text">${overdueCount} tool${overdueCount>1?'s are':' is'} overdue — WhatsApp alerts sent to supervisors</div>
+  </div>`;
+}
+
+function exportCSV() {
+  const rows = [['Tool ID','Tool Name','Category','Status','Checked Out By','Station','Since']];
+  allTools.forEach(t => rows.push([t.id, t.name, t.category, t.status, t.worker||'', t.station||'', t.since||'']));
+  const csv = rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'tool-status-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+}
+
+loadData();
+setInterval(loadData, 60000);
+</script>
+</body>
+</html>
